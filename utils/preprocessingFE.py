@@ -5,6 +5,7 @@ from tqdm import tqdm
 from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
 import torch
+import esm
 
 from transformers import BertModel, BertTokenizer
 
@@ -54,39 +55,77 @@ def smile_to_fp(smiles):
     return np.array(fp, dtype=np.uint8)
 
 
-#protine encoding
-print("Loading BERT tokenizer and model...")
+# #protine encoding
+# print("Loading BERT tokenizer and model...")
 
-tokenizer = BertTokenizer.from_pretrained('Rostlab/prot_bert', do_lower_case=False)
-model = BertModel.from_pretrained('Rostlab/prot_bert')
-model.to(device)
-model.eval()
+# tokenizer = BertTokenizer.from_pretrained('Rostlab/prot_bert', do_lower_case=False)
+# model = BertModel.from_pretrained('Rostlab/prot_bert')
+# model.to(device)
+# model.eval()
 
 
-AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
-AA_TO_IDX = {a: i + 1 for i, a in enumerate(AMINO_ACIDS)}
-def encode_protein_sequence1(sequence):
-    seq = sequence[:MAX_LEN]
-    encoded = [AA_TO_IDX.get(a, 0) for a in seq]
+# AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+# AA_TO_IDX = {a: i + 1 for i, a in enumerate(AMINO_ACIDS)}
+# def encode_protein_sequence1(sequence):
+#     seq = sequence[:MAX_LEN]
+#     encoded = [AA_TO_IDX.get(a, 0) for a in seq]
 
-    if len(encoded) < MAX_LEN:
-        encoded += [0] * (MAX_LEN - len(encoded))
+#     if len(encoded) < MAX_LEN:
+#         encoded += [0] * (MAX_LEN - len(encoded))
     
-    return np.array(encoded, dtype=np.int16)
+#     return np.array(encoded, dtype=np.int16)
     
 
-def encode_protein_sequence(sequence):
 
-    sequence = " ".join(list(sequence))
-    inputs = tokenizer(sequence, return_tensors='pt', truncation=True, max_length=MAX_LEN)
-    inputs = {key: val.to(device) for key, val in inputs.items()}
-    
+#load model esm, alphabet
+print("Loading ESM model and alphabet...")
+model_esm, alphabet = esm.pretrained.esm2_t6_8M_UR50D()
+
+model_esm = model_esm.to(device)
+model_esm.eval()
+
+batch_converter = alphabet.get_batch_converter()
+
+print("ESM model and alphabet loaded successfully!")
+
+def preprocess_sequence(sequence):
+    sequence = sequence.upper()
+    valid = set("ACDEFGHIKLMNPQRSTVWY")
+    seq = "".join([c for c in sequence if c in valid])
+    return seq[:500]  # truncate
+
+def get_esm_embedding(sequence):
+    sequence = preprocess_sequence(sequence)
+    data = [("protein", sequence)]
+    _, _, tokens = batch_converter(data)
+
+    tokens = tokens.to(device)
+
     with torch.no_grad():
-        outputs = model(**inputs)
+        results = model_esm(tokens, repr_layers=[6])
+        token_embeddings = results['representations'][6]
+
+    token_embeddings = token_embeddings[:, 1:-1, :]
+    # Average pooling over the sequence length dimension
+
+    protein_embedding = token_embeddings.mean(dim =1)
+    print(protein_embedding.shape, 'protein embedding shape')
+    return protein_embedding.squeeze().cpu().numpy()
+
+
+
+# def encode_protein_sequence(sequence):
+
+#     sequence = " ".join(list(sequence))
+#     inputs = tokenizer(sequence, return_tensors='pt', truncation=True, max_length=MAX_LEN)
+#     inputs = {key: val.to(device) for key, val in inputs.items()}
     
-    # Use the [CLS] token representation as the protein embedding
-    embedding = outputs.last_hidden_state.mean(dim=1).squeeze()  # Average pooling over the sequence length
-    return embedding.cpu().numpy().astype(np.float32)
+#     with torch.no_grad():
+#         outputs = model(**inputs)
+    
+#     # Use the [CLS] token representation as the protein embedding
+#     embedding = outputs.last_hidden_state.mean(dim=1).squeeze()  # Average pooling over the sequence length
+#     return embedding.cpu().numpy().astype(np.float32)
 
 # print("Processing data and generating features...")
 # smiles_cache = {}
@@ -114,7 +153,7 @@ for sm in tqdm(df["Ligand SMILES"].unique()):
 print("Building Protein cache...")
 seq_cache = {}
 for seq in tqdm(df["Target Sequence"].unique()):
-    seq_cache[seq] = encode_protein_sequence(seq)
+    seq_cache[seq] = get_esm_embedding(seq)
 
 
 
