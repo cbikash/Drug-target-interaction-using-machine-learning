@@ -6,9 +6,12 @@ from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
 import torch
 import esm
+import datetime
+
+today = datetime.datetime.now().strftime("%Y-%m-%d")
 
 class PreprocessorFeatures:
-    def __init__(self):
+    def __init__(self, output_filename="output_"):
 
         self.device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 
@@ -21,6 +24,7 @@ class PreprocessorFeatures:
         self.FP_SIZE = 1024
         self.MAX_LEN = 300
         self.OUTPUT_DIR = 'data/processed_features'
+        self.output_filename = output_filename
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
     
     def process_smiles(self, smiles):
@@ -86,8 +90,8 @@ class PreprocessorFeatures:
         X_prot = np.stack(df["protein"].values)
         y = df["affinity"].values
 
-        np.save(f"{self.OUTPUT_DIR}/X_lig.npy", X_lig)
-        np.save(f"{self.OUTPUT_DIR}/X_prot.npy", X_prot)
-        np.save(f"{self.OUTPUT_DIR}/y.npy", y)
+        np.save(f"{self.OUTPUT_DIR}/{self.output_filename}{today}_X_lig.npy", X_lig)
+        np.save(f"{self.OUTPUT_DIR}/{self.output_filename}{today}_X_prot.npy", X_prot)
+        np.save(f"{self.OUTPUT_DIR}/{self.output_filename}{today}_y.npy", y)
 
         print("Saved preprocessed data successfully!")
