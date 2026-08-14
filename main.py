@@ -1,5 +1,5 @@
-from utils.preprocessing import Preprocessor
-from utils.preprocessingFE import PreprocessorFeatures
+from src.utils.preprocessing import Preprocessor
+from src.utils.preprocessingFE import PreprocessorFeatures
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.ensemble import RandomForestRegressor
 
 import matplotlib.pyplot as plt
-print("Success!")
+
 
 import datetime
 
@@ -19,7 +19,7 @@ today = datetime.date.today().strftime("%Y-%m-%d")
 
 def preprocess_rawdata():
     preprocessor = Preprocessor()
-    file = "data/BindingDB_All.tsv"
+    file = "data/raw/BindingDB_All.tsv"
 
     all_data = pd.read_csv(file, sep='\t', chunksize=100000, low_memory=False, dtype=str)
 
@@ -33,18 +33,18 @@ def preprocess_rawdata():
     df = pd.concat(processed_chunks, ignore_index=True)
     df = df.groupby(['smiles', 'sequence']).mean().reset_index()
 
-    df.to_csv(f"data/processed/{today}_preprocessed_bindingdb.csv", index=False)
+    df.to_csv(f"data/processed/preprocessed_bindingdb.csv", index=False)
 
 def preprocess_features():
-    df_raw = pd.read_csv(f"data/processed/bindingdb_subset_150k.csv", low_memory=False)
+    df_raw = pd.read_csv(f"data/processed/preprocessed_bindingdb.csv", low_memory=False)
     preprocessor = PreprocessorFeatures(output_filename="bindingdb_all_")
     print("Processing features for the dataset...", preprocessor)
     preprocessor.save_features(df_raw)
 
 def load_features():
-    X_lig = np.load(f"data/processed_features/{today}_X_lig.npy")
-    X_prot = np.load(f"data/processed_features/{today}_X_prot.npy")
-    y = np.load(f"data/processed_features/{today}_y.npy")
+    X_lig = np.load(f"data/processed_features/X_lig.npy")
+    X_prot = np.load(f"data/processed_features/X_prot.npy")
+    y = np.load(f"data/processed_features/y.npy")
     return X_lig, X_prot, y
 
 def ml_data_prepare(data_loader):
