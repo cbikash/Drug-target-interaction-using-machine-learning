@@ -59,7 +59,6 @@ class PreprocessorFeatures:
         return protein_embedding.squeeze().cpu().numpy()
 
 
-
     def process_sequence(self, sequence):
         sequence = sequence.upper()
         valid = set("ACDEFGHIKLMNPQRSTVWY")
