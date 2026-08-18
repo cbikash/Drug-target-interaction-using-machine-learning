@@ -1,0 +1,2 @@
+initial_rows,missing_required,invalid_or_censored_ki,non_positive_ki,invalid_smiles,invalid_protein,duplicates_removed_within_chunks,final_rows,total_duplicate,total_duplicates_removed
+3228554,2601747,81193,27,15031,17,22472,466743,0,63796
